@@ -1,0 +1,59 @@
+---
+title: "Wrangling your data frames with dplyr"
+author: "Elise Gould"
+date: "6 September 2016"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Why dplyr?
+
+Anything you can do in dplyr, you can do in base R. So why bother?
+
+Expressive, and verb-focused rather than object-focused:
+
+- Code is easier to write: less mental effort, more efficient (I have been able to halve the number of lines of code taken to merge and tidy data-frames when translating into dplyr).
+- this means it's easy to *read*, which is handy if you're reading other people's code, or some code from a project you haven't looked at in a while.
+
+Computationally efficient:
+
+Many operations are coded in C++, so commands are very fast to execute.
+
+# A grammar of data manipulation:
+
+
+- row-wise subsetting: `filter()` takes logical conditions as arguments
+- column-wise subsetting: `select()` takes column names or `tidyr` functions to select matching columns
+
+- Create new variables, change existing variables: `mutate()`
+- summarise data with summary statistics: `summarise()`
+
+- Reorder rows: `arrange()`
+- Rename variables: `rename()`
+
+
+
+## *Verbs*:
+
+## A common syntax:
+
+Each of the verbs above follow the same syntax:
+
+- first argument is a data-frame
+- other arguments describe what to do to that data frame, you refer to columns in the data frame directly, no need to use the $ operator
+- the function returns a new data frame
+- input and output dataframes are *tidy* dataframes
+
+
+# Manipulating ecological data with `dplyr`: a demo
+
+## Tidy data frames (do some mutating)
+
+
+## Merging data frames: relational data
+
+
+## Grouped summarising operations:
