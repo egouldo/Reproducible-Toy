@@ -10,6 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(magrittr)
 library(dplyr)
 library(tidyr)
+library(devtools)
+library(ggplot2)
 ```
 
 # Why dplyr?
@@ -75,8 +77,7 @@ We establish the aims of the upcoming mini-analysis:
 
 
 ```{r get-data}
-# library(devtools)
-# devtools::install_github("egouldo/GrasslandAllocatr")
+# devtools::install_github("egouldo/GrasslandAllocatr") # uncomment to download the data
 library(GrasslandAllocatr)
 data("field_data_raw_2014")
 data("field_site_management_2014")
@@ -213,6 +214,8 @@ mean_percent_cover <- analysis_data %>%
         group_by(transect_number,type) %>%
         summarise(mean_pc_type = mean(pc_type))
 
+mean_percent_cover
+
 # But we only want the mean percent cover for the exotic species, and the native forbs:
 # AND, we want them to be in separate columns.
 
@@ -221,6 +224,7 @@ mean_percent_cover %<>%
         select(transect_number, BG, E) %>%
         dplyr::rename(., E_pc = E, BG_pc = BG)
 
+mean_percent_cover
         
 ```
 
@@ -228,7 +232,12 @@ Okay, onto the diversity variables now:
 
 ```{r diversity-variables}
 # Let's get the number of distinct species of Ecotics and Native Forbs, within each transect
-!
+diversity_vars <-
+        analysis_data %>%
+        filter(type == "NF" | type == "E") %>%
+        group_by(transect_number, type) %>%
+        distinct(species) %>%
+        tally
 
 # Let's get this into an appropriate shape for joining this onto the percent cover data:
 diversity_vars
@@ -241,23 +250,30 @@ Let's join these two data frames back together:
 diversity_vars %<>%
         spread(key = type, value = n) %>%
         rename(E_diversity = E, NF_diversity = NF)
+diversity_vars
 ```
 
-But wait, we're missing the site level data, which are our explanatory variables. Let's join it back in:
+But wait, we're missing the site level data, which are our explanatory variables.Let's first join the two data frames containing our response variables together, and then join it back in. Notice how we can pipe each of these actions together into a single pipeline.
 
 ```{r create-diversity-vars}
 
-summary_vars <- left_join(mean_percent_cover, diversity_vars)
-
+summary_vars <- left_join(mean_percent_cover, diversity_vars) %>%
+        semi_join(., {analysis_data %>% 
+                        select(transect_number,management,years_since)})
 ```
 
+For the difference between a `semi_join` and a `left_join`, see the section on relational data frames in Wickham and Grolemund's book [R for datascience](http://r4ds.had.co.nz/relational-data.html).
 
+## Our data's ready for analysis now, make some plots:
 
-!## Our data's ready for analysis now, make some plots:
+Because we've been 'tidying' our data as we go, we can send it straight to ggplot2, for some nice plots.
 
-because our data is already 'tidy', we can send it straight to ggplot2, for some sweet as plots.
+```{r ggplots}
+summary_vars %>%
+        ggplot(aes(x = E_pc))
+```
 
-
+That's nice. But I wonder how each of the variables relate to one another? 
 
 # Session Info:
 
