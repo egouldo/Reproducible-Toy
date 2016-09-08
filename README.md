@@ -2,5 +2,5 @@
 
 ## Getting to know dplyr and tidyr:
 
-Here's a little demo: [Reproducible-Toy/vignettes/dplyr_demo_ecol_data.md](Reproducible-Toy/vignettes/dplyr_demo_ecol_data.md)
+Here's a little demo: [Reproducible-Toy/vignettes/dplyr_demo_ecol_data.md](https://github.com/egouldo/Reproducible-Toy/blob/master/vignettes/dplyr_demo_ecol_data.md)
 
