@@ -1,5 +1,5 @@
 ---
-title: "Wrangling your data frames with dplyr"
+title: "Wrangling your data frames with dplyr and tidyr"
 author: "Elise Gould"
 date: "6 September 2016"
 output: github_document
@@ -56,22 +56,23 @@ Each of the verbs above follow the same syntax:
 
 ## About the dataset we'll be using:
 
-This is my field data from my Master's project. Check out the github repository here: [GrasslandAllocatr](https://github.com/egouldo/GrasslandAllocatr). 
+This is the field data from my Master's project. Check out the github repository here: [GrasslandAllocatr](https://github.com/egouldo/GrasslandAllocatr). 
 
-        a. There is one file containing the observations from the field campaign.
-        b. Another file containing information about all observed vascular species across all sites
-        c. A third file containing information
+a. There is one file containing the raw observations from the field campaign.
+b. A second file containing information about all observed vascular species across all sites
+c. A third file containing information about management actions undertaken at each site.
 
-## What do we want to do with this data?
+## Planning ahead: what do we want to do with this data?
 
-We establish the aims of the upcoming mini-analysis:
+We establish the aims of the mini-analysis:
 
-1. Import and merge three CSV files into a single data frame.
+1. Import and merge the three datasets into a single data frame.
 2. Create new variables summarised over each transect
         - mean bare ground per transect
         - mean exotic cover per transect
         - weed diversity at each transect
         - native forb diversity at each transect
+3. Do some plotting with our tidy, summarised data
 
 ## Get the data:
 
@@ -103,6 +104,8 @@ field_data <- field_data_raw_2014 %>%
                         into = c("transect_number", "quadrat", "species", "percent_cover"),
                         sep = ",")  %>% tbl_df()
 
+field_data # neat console output from tbl_df
+
 glimpse(field_data) # That's better
 
 site_management_data <- field_site_management_2014 %>%
@@ -125,22 +128,32 @@ glimpse(species_lookup_table) # That's better
 
 So we have three different data frames now:
 
-1. `field_data`: `r unique(field_data$transect_number) %>% length()` transects, and 10 quadrats per each transect. For each quadrat we have percentage cover estimates for individual species, as well as litter, rock, lichen and bare ground. Note that the variable `species` is a bit of a misnomer because this column contains species names and abiotic variables.
-2. `site_management_data`: Contains information about management actions undertaken at each site, and any burning history, such as date and season of last burn.
+1. `field_data`: `r unique(field_data$transect_number) %>% length()` transects, and 10 quadrats per each transect. For each quadrat we have percentage cover estimates for individual species, as well as abiotic variables including litter, rock, lichen and bare ground. Note that the variable `species` is a bit of a misnomer because this column contains species names and abiotic variables.
+2. `site_management_data`: Contains information about management actions undertaken at each site, and any burning history, such as date and season of last burn (an observation for each transect)
 3. `species_lookup_data`: Contains a list of every single vascular species observed across all sites, and the origin (native, exotic), growth form (forb, graminoid).
 
 ## Merging data frames: relational data
 
+We want to keep all observations in the `field_data` frame, and we want to add the columns from the `species_lookup_dataframe`, matching by each species. So we want a `left_join()`, which can be graphically represented by:
+
+![left_join, R for datascience](http://r4ds.had.co.nz/diagrams/join-outer.png)
+
+See the section on relational data frames in Wickham and Grolemund's book [R for datascience](http://r4ds.had.co.nz/relational-data.html) for more information about the different types of joins in `dplyr`. 
+
+We also want to merge in site-level management attributes. We'll do the joining in two-steps, and connect them with a pipe.
+
 ```{r merge-all-data-frames}
 analysis_data <- dplyr::left_join(field_data, species_lookup_table) %>% # this weird operator is a pipe
         dplyr::left_join(.,site_management_data)
+analysis_data # after
+glimpse(analysis_data) # this is where glimpse comes in handy...
 ```
 
 ## Let's *tidy* up a bit:
 
 ### Remove rows using `dplyr::filter()` and cols using `dplyr::select()`
 
-I want to exclude the site that has been slashed from further analysis, we do this with `dplyr::filter()`. I don't really care about the `origin` or `growth_form` variables, because `type` is an amalgam of these two variables for vascular species, but contains entries for abiotic measures like rock and bare-ground, which is also important. Let's drop this using `dplyr::select()`. We can join both of these two operations together into a pipeline, using the pipe operator `%>%`.
+I want to exclude the site that has been slashed from further analysis, we do this with `dplyr::filter()`. I don't really care about the `origin` or `growth_form` variables, because `type` is an amalgam of these two variables for vascular species, but contains entries for abiotic measures like rock and bare-ground, which is also important. Let's drop this using `dplyr::select()`. We can join both of these two operations together into a pipeline, using the pipe operator `%>%`. 
 
 ```{r remove-row-remove-cols}
 analysis_data %<>% 
@@ -149,9 +162,13 @@ analysis_data %<>%
 analysis_data %>% glimpse
 ```
 
+The pipe operator sends the object on the left as the first argument to the commands on the right. We can chain multiple operations together with multiple pipes. The `%<>%` is a special version of the pipe operator from package `magrittr`, it sends the transformed object back and assigns it to the object's name, in this case `analysis_data`
+
 ### Change existing variables using `dplyr::mutate()`
 
 Unfortunately there was no information about non-vascular species in the 'type' column that came from the `species_lookup_table` dataframe. We want information about the type of every recorded entity in each quadrat in this column. So far we only have information about vascular plants. 
+
+We use `dplyr::mutate` to manipulate existing variables. We can incorporate `ifelse` statements to assign the output to the column we want to manipulate conditionally. Below we want to set the type to "bare ground" or `"BG"` if there is an observation of "BG" in the `species` column.
 
 ```{r set-type-for-non-vascular-species}
 analysis_data %<>%
@@ -159,6 +176,8 @@ analysis_data %<>%
                       type = ifelse(species == "L", "L", type),
                       type = ifelse(species == "LM", "LM", type),
                       type = ifelse(species == "R", "R", type))
+
+
 ```
 
 Also, when we loaded our dataframes in from the package, all variables were stored as character variables. We want to change the following variables to:
@@ -187,7 +206,8 @@ analysis_data %<>%
 
 ## Now let's *transform* our data:
 
-We want to create following variables:
+We want to create following summary variables, one for every single transect:
+
 -  `BG_pc` Mean percent cover of bare-ground (`type == "BG`"), for each transect
 -  `E_pc` Mean percent cover of all exotic species (`type == "E`), for each transect
 -  `E_diversity` Number of all exotic species at each transect (sum of all `"E"` spp across quadrats)
@@ -196,19 +216,20 @@ We want to create following variables:
 
 ### Grouped operations with `dplyr::group_by()`:
 
-The `dplyr::group_by` function is the star of the show here, and we can avoid for-loops when we want to repeat the same operation on subsets or groups of a dataframe.
+The `dplyr::group_by` function is the star of the show here, and we can avoid for-loops when we want to repeat the same operation on subsets or groups of a dataframe. This is particularly handy when we have nested grouping.
 
-It also allows for nested grouping. For example, the first two variables require that we `group_by` each transect, *then* each quadrat, *then* each type. The second set of variables require that we group by `transect` and `type` only: we want to know how many unique species occurred in each transect, for both exotic and native forbs.
+For example, the first two variables we want to create require that we `group_by` each transect, *then* each quadrat, *then* each type. The second set of variables require that we group by `transect` and `type` only: we want to know how many unique species occurred in each transect, for both exotic and native forbs.
 
 We'll create each type of variable separately, starting with the percent cover variables:
 
 ```{r make-summary-vars}
 analysis_data %>%
         dplyr::group_by(transect_number, quadrat, type) %>%
-        dplyr::summarise(pc_type = sum(percent_cover))# Gives us the percent cover for each type, in each quadrat
+        dplyr::summarise(pc_type = sum(percent_cover)) # Gives us the percent cover for each type, in each quadrat
 
 # now we want to take the mean of the type percent cover totals, over all quadrats, let's try again:
-mean_percent_cover <- analysis_data %>%
+mean_percent_cover <- 
+        analysis_data %>%
         group_by(transect_number, quadrat, type) %>%
         summarise(pc_type = sum(percent_cover)) %>%
         group_by(transect_number,type) %>%
@@ -258,22 +279,44 @@ But wait, we're missing the site level data, which are our explanatory variables
 ```{r create-diversity-vars}
 
 summary_vars <- left_join(mean_percent_cover, diversity_vars) %>%
-        semi_join(., {analysis_data %>% 
-                        select(transect_number,management,years_since)})
+        left_join(.,{analysis_data %>% 
+                        select(transect_number,management,years_since) %>%
+        distinct})
+
 ```
 
-For the difference between a `semi_join` and a `left_join`, see the section on relational data frames in Wickham and Grolemund's book [R for datascience](http://r4ds.had.co.nz/relational-data.html).
 
 ## Our data's ready for analysis now, make some plots:
 
 Because we've been 'tidying' our data as we go, we can send it straight to ggplot2, for some nice plots.
 
-```{r ggplots}
+```{r ggplots, fig.height= 6, fig.width=8}
 summary_vars %>%
-        ggplot(aes(x = E_pc))
+        ggplot(aes(x = management, y = BG_pc)) +
+        geom_violin() +
+        geom_point()
+
+summary_vars %>%
+        ggplot(aes(x = years_since, y = BG_pc, colour = management)) +
+        geom_point()
+
 ```
 
-That's nice. But I wonder how each of the variables relate to one another? 
+
+That's nice. But I wonder how each of the variables vary in relation to one another? We'll use faceting in ggplot2, so we'll need to make our data long.
+
+```{r faceted-violins,fig.width=10, fig.height=8}
+
+summary_vars %>% 
+        gather(key = variable, value = value, BG_pc,E_pc,E_diversity,NF_diversity) %>%
+        ggplot(aes(x = management, y = value, colour = management)) +
+        geom_violin() +
+        geom_point()+
+        facet_grid(.~variable)
+
+```
+
+That's all folks!
 
 # Session Info:
 
